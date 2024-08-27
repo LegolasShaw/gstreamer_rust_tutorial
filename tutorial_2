@@ -1,0 +1,92 @@
+use gstreamer::{glib, init};
+use gstreamer::ffi::{gst_bin_add_many, gst_element_factory_make,gst_element_get_bus,
+                     GstBin, gst_element_link, gst_element_set_state, gst_pipeline_new,
+                     gst_bus_timed_pop_filtered,
+                     GST_STATE_PLAYING, GST_STATE_CHANGE_FAILURE, GST_CLOCK_TIME_NONE,
+                     GST_MESSAGE_ERROR, GST_MESSAGE_EOS};
+use gstreamer::glib::translate::*;
+use gstreamer::prelude::GObjectExtManualGst;
+
+use std::{ffi::CStr, ffi::CString, future::Future, mem, num::NonZeroU64, pin::Pin};
+use std::ffi::{c_char, c_void};
+use glib::translate::*;
+use gstreamer::glib::ffi::gpointer;
+use gstreamer::glib::gobject_ffi::{GObject, g_object_set, g_object_get, g_object_set_data, g_object_get_data, g_object_set_property};
+use gstreamer::glib::gobject_ffi::{g_signal_connect_data};
+use gstreamer::glib::ffi::{g_main_loop_new};
+
+// fn main1() {
+//     let test1 = "test1";
+//     let test2= "test2";
+//     let ptr = test1.as_ptr() as *const i8;
+//     let ptr1 = test2.as_ptr() as *const i8;
+//     let c_str = unsafe { CStr::from_ptr(ptr) };
+//     println!("{:?}", c_str.to_str().unwrap());
+//     let c_str1 = unsafe { CStr::from_ptr(ptr1) };
+//     println!("{:?}", c_str1.to_str().unwrap());
+//     let c_str = CString::new("c_str".to_owned()).unwrap();
+//     let c_str_ref  = c_str.as_c_str();
+//     let c_ptr = c_str_ref.as_ptr();
+//     let r_str = unsafe { CStr::from_ptr(c_ptr) };
+//     println!("{:?}", r_str.to_str().unwrap());
+// }
+
+fn main() {
+    _ = init();
+    let n: *const u32 = std::ptr::null();
+    let source1 = unsafe { gst_element_factory_make("uridecodebin".to_glib_none().0, "source1".to_glib_none().0) };
+    let uri = "https://gstreamer.freedesktop.org/data/media/sintel_trailer-480p.webm";
+    let c_str = CString::new(uri.to_owned()).unwrap();
+    let c_str_ptr = c_str.as_c_str().as_ptr();
+    let key = CString::new("uri".to_owned()).unwrap().as_c_str().as_ptr();
+    let _ = unsafe { g_object_set_data(source1 as *mut GObject,key, c_str_ptr as gpointer); };
+    let test = unsafe { g_object_get_data(source1 as *mut GObject, key) };
+    let c_str = unsafe { std::ffi::CStr::from_ptr(test as *const i8) };
+    println!("{:?}", c_str.to_str().unwrap());
+
+
+    let source = unsafe { gst_element_factory_make("videotestsrc".to_glib_none().0, "source".to_glib_none().0) };
+    let sink = unsafe { gst_element_factory_make("autovideosink".to_glib_none().0, "sink".to_glib_none().0) };
+    let pipeline = unsafe { gst_pipeline_new("test-pipeline".to_glib_none().0) };
+
+    let sink1 = unsafe { gst_element_factory_make("autovideosink".to_glib_none().0, "sink1".to_glib_none().0) };
+
+    if pipeline.is_null() ||source.is_null() ||sink.is_null() {
+        println!("Not all elements could be created.\n");
+        return ;
+    }
+
+
+    unsafe { gst_bin_add_many(pipeline as *mut GstBin, source, sink, n);}
+
+    unsafe {
+        if gst_element_link(source, sink) == 0 {
+            println!("Elements could not be linked.\n");
+        } else {
+            println!("Elements be linked.\n");
+        }
+    }
+
+    // let _ = unsafe { g_object_set(source as *mut GObject, "ref_count".to_glib_none().0, 100); };
+    // let value = unsafe { g_object_get_data(source as *mut GObject, "ref_count".to_glib_none().0) };
+    // println!("{:?}", value);
+    let ret = unsafe { gst_element_set_state(pipeline, GST_STATE_PLAYING) };
+
+    if ret == GST_STATE_CHANGE_FAILURE {
+        println!("Unable to set the pipeline to the playing state.\n")
+    }
+
+    let bus = unsafe { gst_element_get_bus(pipeline) };
+
+    let msg = unsafe {
+        gst_bus_timed_pop_filtered(bus, GST_CLOCK_TIME_NONE,
+                                   GST_MESSAGE_ERROR | GST_MESSAGE_EOS)
+    };
+
+    unsafe {
+        if (*msg).type_ == GST_MESSAGE_ERROR {
+
+        }
+    }
+
+}
